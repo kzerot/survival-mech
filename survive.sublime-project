@@ -3,7 +3,11 @@
 	[
 		{
 			"follow_symlinks": true,
-			"path": "/Users/mynyashko/Code/survival-mech"
+			"path": "U:sers\\mynyashko\\Code\\survival-mech"
+		},
+		{
+			"follow_symlinks": true,
+			"path": "."
 		}
 	]
 }
