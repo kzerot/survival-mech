@@ -46,6 +46,8 @@ class Movable(object):
     def json(self):
         return json.dumps(self.actions)
 
+    def getPos(self):
+        return [self.model.getX(), self.model.getY(), self.model.getZ()]
 
 class Player(Movable):
     """docstring for Player"""
@@ -106,6 +108,9 @@ class World(ShowBase):
         '''fires then state changed ))) '''
         print 'Clasic stateChange', data
 
+    def getPlayers(self):
+        return self.players
+
 class Server(Protocol):
     """docstring for Server"""
     def __init__(self, factory, world):
@@ -115,8 +120,19 @@ class Server(Protocol):
 
     def connectionMade(self):
         print 'New player'
+        dataToSend = {"add_player":self.factory.numProtocols}
+        players = []
+        for pl in self.world.players:
+            client_player = self.world.players[pl]
+            players.append({
+                "id": client_player.id,
+                "loc": client_player.getPos(),
+                "actions": client_player.actions
+                })
+        dataToSend["players"] = players
         for p in self.factory.clients:
-            p.transport.write(json.dumps({"add_player":self.factory.numProtocols}))
+            p.transport.write(json.dumps(dataToSend))
+
         self.factory.clients.append(self)
         self.world.playerEnter(self.factory.numProtocols)
         self.id = self.factory.numProtocols
@@ -129,12 +145,17 @@ class Server(Protocol):
 
     def dataReceived(self, data):
         print 'Data received', data
-        jdata = json.loads(data)
-        jdata["player"] = self.id
-        self.world.stateChange(jdata)
+        dataToSend = {}
+        try:
+            jdata = json.loads(data)
+        except:
+            return
+        dataToSend["id"] = self.id
+        dataToSend.update(jdata)
+        self.world.stateChange({"player": dataToSend})
         for p in self.factory.clients:
             if p != self:
-                p.transport.write(json.dumps(jdata))
+                p.transport.write(json.dumps({"player": dataToSend}))
 
 class ServerFactory(Factory):
     def __init__(self, world):
