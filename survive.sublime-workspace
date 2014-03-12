@@ -4,6 +4,26 @@
 		"selected_items":
 		[
 			[
+				"pro",
+				"Protocol	(imported, class)"
+			],
+			[
+				"add",
+				"addCallback  (function)"
+			],
+			[
+				"sta",
+				"stateChange"
+			],
+			[
+				"dum",
+				"dumps  (function)"
+			],
+			[
+				"pla",
+				"players	(attribute, instance)"
+			],
+			[
 				"setM",
 				"setMoveTask()	(attribute, function)"
 			],
@@ -292,10 +312,6 @@
 				"ajax	Google AJAX Libraries: jQuery UI"
 			],
 			[
-				"pro",
-				"property	(builtin, function)"
-			],
-			[
 				"__",
 				"__name__"
 			],
@@ -323,7 +339,7 @@
 			"file": "main.py",
 			"settings":
 			{
-				"buffer_size": 1816,
+				"buffer_size": 3500,
 				"line_ending": "Unix"
 			}
 		},
@@ -356,7 +372,7 @@
 			"file": "code/controls.py",
 			"settings":
 			{
-				"buffer_size": 2818,
+				"buffer_size": 2784,
 				"line_ending": "Unix"
 			}
 		}
@@ -593,15 +609,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1816,
+						"buffer_size": 3500,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								585,
-								565
+								810,
+								810
 							]
 						],
 						"settings":
@@ -710,10 +726,12 @@
 							},
 							"codeintel_tooltips": "popup",
 							"sublime_auto_complete": true,
-							"syntax": "Packages/Python/Python.tmLanguage"
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 221.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
@@ -1117,15 +1135,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2818,
+						"buffer_size": 2784,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								2737,
-								2737
+								2783,
+								2783
 							]
 						],
 						"settings":
@@ -1239,7 +1257,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 103.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
