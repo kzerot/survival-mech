@@ -4,13 +4,18 @@ from twisted.internet.task import LoopingCall
 from twisted.internet import reactor, defer
 from twisted.internet.threads import deferToThread
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
+from direct.actor.Actor import Actor
 from code.controls import Controls
 from code.enum import *
 import json
 import sys
 
 isServer = "-s" in sys.argv
-
+print sys.argv
+if isServer:
+    print 'Mode: server'
+else:
+    print 'Mode: client'
 
 def safeLoads(raw):
     if '}{' in raw:
@@ -25,11 +30,12 @@ def safeLoads(raw):
 
 
 class Movable(object):
+
     def __init__(self, model, world):
         self.actions = []
         self.world = world
         self.id = -1
-        #simplify
+        # simplify
         self.gc = self.world.gc
         self.model = model
 
@@ -38,7 +44,7 @@ class Movable(object):
         self.speedRotate = 20
 
         self.loocVec = (0, 0)
-        #only H rotate
+        # only H rotate
         self.rotate = 0
 
     def setMoveTask(self):
@@ -67,7 +73,6 @@ class Movable(object):
         return [self.model.getX(), self.model.getY(), self.model.getZ()]
 
     def setPos(self, loc):
-        print "loc:", loc
         x, y, z = loc
         self.model.setPos(render, x, y, z)
 
@@ -76,33 +81,44 @@ class Movable(object):
 
 
 class Player(Movable):
+
     """Player has many parts, and all of them we must sync"""
+
     def __init__(self, model, world):
         model = render.attachNewNode("player")
         super(Player, self).__init__(model, world)
 
-        #Player has some parts
+        # Player has some parts
         #Legs, body, weapons
-        self.legs = None
-        self.body = None
-        #weapons has limited points
-        #1
+        self.legs = Actor('content/entity/mech', {
+                          'stay': 'content/entity/mech-Anim1',
+                          'start': 'content/entity/ech-Anim1',
+                          'walk': 'content/entity/mech-walk',
+                          })
+        self.legs.reparentTo(model)
+        self.legs.loop('walk')
+        point = self.legs.exposeJoint(None, "modelRoot", "pelvis")
+        self.body = loader.loadModel('content/entity/torso')
+        self.body.reparentTo(point)
+        self.body.setHpr(render, 0, 0, 0)
+        # weapons has limited points
+        # 1
         self.tower = None
-        #2
+        # 2
         self.right = None
-        #3
+        # 3
         self.left = None
-        #4
+        # 4
         self.right2 = None
-        #5
+        # 5
         self.left2 = None
 
-        #For firing using dict, witch weapon is on
+        # For firing using dict, witch weapon is on
         self.firing = [1, ]
 
-        #variables hardcoded
-        self.bodyRotate = 15
-
+        # variables hardcoded
+        self.bodyRotate = 50
+        self.speedRotate = 50
         self.isPlayer = False
         self.targetRotation = (0, 0)
         self.target = None
@@ -121,7 +137,7 @@ class Player(Movable):
             self.world.stateChange(json.dumps({"action": [key, value]}))
 
     def updateTarget(self):
-        #send P and H
+        # send P and H
         self.world.stateChange(json.dumps({"targetRot": self.targetRotation}))
 
     def targeting(self, task):
@@ -135,11 +151,13 @@ class Player(Movable):
                 self.body.setH(render, needH)
             else:
                 rot = (needH - h) / abs(needH - h)
-            self.body.setH(self.body, rot*self.gc.getDt()*self.bodyRotate)
+                self.body.setH(
+                    self.body, rot * self.gc.getDt() * self.bodyRotate)
         return super(Player, self).move(task)
 
 
 class World(ShowBase):
+
     def __init__(self, client=None):
         ShowBase.__init__(self)
 
@@ -157,6 +175,7 @@ class World(ShowBase):
         self.instance.reparentTo(render)
         #self.instance.setScale(0.25, 0.25, 0.25)
         self.instance.setPos(0, 0, 0)
+        self.instance.setScale(5, 5, 5)
 
     def setPlayer(self):
         self.player = Player("content/entity/sphere", self)
@@ -173,7 +192,7 @@ class World(ShowBase):
         return player
 
     def playerAdd(self, player, id):
-        #self.players.append(player)
+        # self.players.append(player)
         self.players[id] = player
 
     def stateChange(self, data):
@@ -195,13 +214,13 @@ class World(ShowBase):
     def updatePlayer(self, data):
         player = None
         if "id" not in data or (not isServer and data["id"] == self.player.id):
-            #Without ID it's client's player
+            # Without ID it's client's player
             player = self.player
         elif "id" in data:
             if data["id"] in self.players:
                 player = self.players[data["id"]]
             else:
-                #Add player!
+                # Add player!
                 player = self.playerEnter(data["id"])
         else:
             print "Incorrect data", data
@@ -219,14 +238,20 @@ class World(ShowBase):
     def stop(self):
         print 'going to bed...'
         self.taskMgr.stop()
+        print 'stop reactor'
         reactor.stop()
+        print 'close window'
         self.closeWindow(self.win)
-        base.userExit()
+        print 'sys.exit'
         sys.exit()
+        print 'user exit'
+        base.userExit()
 
 
 class Server(Protocol):
+
     """docstring for Server"""
+
     def __init__(self, factory, world):
         self.factory = factory
         self.world = world
@@ -265,7 +290,7 @@ class Server(Protocol):
         for jdata in bigdata:
             dataToSend = {}
             dataToSend = jdata
-            #dataToSend.update(jdata)
+            # dataToSend.update(jdata)
             if "id" not in dataToSend:
                 dataToSend["id"] = self.id
             self.world.updatePlayer(dataToSend)
@@ -275,6 +300,7 @@ class Server(Protocol):
 
 
 class ServerFactory(Factory):
+
     def __init__(self, world):
         self.world = world
         self.numProtocols = 0
@@ -285,7 +311,9 @@ class ServerFactory(Factory):
 
 
 class GameClient(Protocol):
+
     """docstring for Server"""
+
     def __init__(self, factory, world):
         self.factory = factory
         self.world = world
@@ -314,6 +342,7 @@ class GameClient(Protocol):
 
 
 class GameClientFactory(ClientFactory):
+
     def __init__(self, world):
         self.world = world
 
@@ -326,14 +355,14 @@ class GameClientFactory(ClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         print 'Lost connection.  Reason:', reason
-        #connector.connect()
+        # connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
         print 'Connection failed. Reason:', reason
 
 w = World()
 
-#w.run()
+# w.run()
 if isServer:
     reactor.listenTCP(8123, ServerFactory(w))
 else:
