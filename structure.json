@@ -2,7 +2,8 @@
     "player" : {
             "actions":[1,2],
             "loc": [0,0,1],
-            "id": 1
+            "id": 1,
+            "targetRot": [50,0]
         },
     "players" : [
         {

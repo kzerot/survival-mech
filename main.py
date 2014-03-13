@@ -31,14 +31,15 @@ class Movable(object):
         self.id = -1
         #simplify
         self.gc = self.world.gc
-        self.model = world.loader.loadModel(model)
-        self.model.reparentTo(render)
+        self.model = model
 
         self.speedForward = 20
         self.speedBack = -10
-        self.speedRotate = 10
+        self.speedRotate = 20
 
         self.loocVec = (0, 0)
+        #only H rotate
+        self.rotate = 0
 
     def setMoveTask(self):
         taskMgr.add(self.move, "playerTask")
@@ -51,6 +52,12 @@ class Movable(object):
             self.model.setY(self.model, self.gc.getDt() * self.speedForward)
         elif self.isKey(BACK):
             self.model.setY(self.model, self.gc.getDt() * self.speedBack)
+
+        if self.isKey(ROT_LEFT):
+            self.model.setH(self.model, self.gc.getDt() * self.speedRotate)
+        elif self.isKey(ROT_RIGHT):
+            self.model.setH(self.model, -self.gc.getDt() * self.speedRotate)
+
         return task.cont
 
     def json(self):
@@ -61,15 +68,44 @@ class Movable(object):
 
     def setPos(self, loc):
         print "loc:", loc
-        x,y,z = loc
+        x, y, z = loc
         self.model.setPos(render, x, y, z)
+
+    def setRot(self, rot):
+        self.model.setH(rot)
 
 
 class Player(Movable):
-    """docstring for Player"""
+    """Player has many parts, and all of them we must sync"""
     def __init__(self, model, world):
+        model = render.attachNewNode("player")
         super(Player, self).__init__(model, world)
+
+        #Player has some parts
+        #Legs, body, weapons
+        self.legs = None
+        self.body = None
+        #weapons has limited points
+        #1
+        self.tower = None
+        #2
+        self.right = None
+        #3
+        self.left = None
+        #4
+        self.right2 = None
+        #5
+        self.left2 = None
+
+        #For firing using dict, witch weapon is on
+        self.firing = [1, ]
+
+        #variables hardcoded
+        self.bodyRotate = 15
+
         self.isPlayer = False
+        self.targetRotation = (0, 0)
+        self.target = None
 
     def setControl(self, key, value):
         '''TODO '''
@@ -83,6 +119,24 @@ class Player(Movable):
 
         if changed and self.isPlayer:
             self.world.stateChange(json.dumps({"action": [key, value]}))
+
+    def updateTarget(self):
+        #send P and H
+        self.world.stateChange(json.dumps({"targetRot": self.targetRotation}))
+
+    def targeting(self, task):
+        pass
+
+    def move(self, task):
+        if self.body:
+            needH = self.targetRotation[1]
+            h = self.body.getH(render)
+            if abs(needH - h) < 1:
+                self.body.setH(render, needH)
+            else:
+                rot = (needH - h) / abs(needH - h)
+            self.body.setH(self.body, rot*self.gc.getDt()*self.bodyRotate)
+        return super(Player, self).move(task)
 
 
 class World(ShowBase):

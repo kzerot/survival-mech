@@ -80,9 +80,10 @@ class Controls:
 
             self.mx = mpos.getX()
             self.my = mpos.getY()
-
+        self.player.targetRotation = (self.camera.getP(), self.camera.getH)
 #        vDir = Vec3(self.j3.getPos(render))-Vec3(base.camera.getPos(render))
 #        vDir = vDir*0.2
 #        base.camera.setPos(Vec3(base.camera.getPos())+vDir)
 #        base.camera.lookAt(self.j2.getPos(render))
+#        print self.j3.getH(render)
         return task.cont
