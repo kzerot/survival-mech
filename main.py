@@ -11,8 +11,18 @@ import sys
 
 isServer = "-s" in sys.argv
 
-#test
-#isServer = True
+
+def safeLoads(raw):
+    if '}{' in raw:
+        try:
+            return [json.loads(t)
+                    for t in raw.replace('}{', '}||{').split('||')]
+        except:
+            print 'failed to parse ', raw
+            return []
+    else:
+        return [json.loads(raw)]
+
 
 class Movable(object):
     def __init__(self, model, world):
@@ -49,10 +59,17 @@ class Movable(object):
     def getPos(self):
         return [self.model.getX(), self.model.getY(), self.model.getZ()]
 
+    def setPos(self, loc):
+        print "loc:", loc
+        x,y,z = loc
+        self.model.setPos(render, x, y, z)
+
+
 class Player(Movable):
     """docstring for Player"""
     def __init__(self, model, world):
         super(Player, self).__init__(model, world)
+        self.isPlayer = False
 
     def setControl(self, key, value):
         '''TODO '''
@@ -63,10 +80,9 @@ class Player(Movable):
         elif not value and key in self.actions:
             self.actions.remove(key)
             changed = True
-        print 'Controlling'
-        if changed:
-            print 'Send data to server'
-            self.world.stateChange( json.dumps({"action": [key, value]}))
+
+        if changed and self.isPlayer:
+            self.world.stateChange(json.dumps({"action": [key, value]}))
 
 
 class World(ShowBase):
@@ -92,12 +108,15 @@ class World(ShowBase):
         self.player = Player("content/entity/sphere", self)
         self.player.model.setPos(0, 0, 0)
         self.player.setMoveTask()
+        self.player.isPlayer = True
 
     def playerEnter(self, id=None):
         player = Player("content/entity/sphere", self)
         player.model.setPos(0, 0, 0)
         player.setMoveTask()
+        player.id = id
         self.playerAdd(player, id)
+        return player
 
     def playerAdd(self, player, id):
         #self.players.append(player)
@@ -105,22 +124,67 @@ class World(ShowBase):
 
     def stateChange(self, data):
         '''data: players, mobs '''
-        '''fires then state changed ))) '''
-        print 'Clasic stateChange', data
+        '''fires then state changed'''
+        '''Default - server version'''
+        print 'Server stateChange', data
+
+    def updateData(self, data):
+        print "updateData", data
+        if "add_player" in data:
+            self.playerEnter(data["add_player"])
+        if "player" in data:
+            self.updatePlayer(data["player"])
+        if "players" in data:
+            for p in data["players"]:
+                self.updatePlayer(p)
+
+    def updatePlayer(self, data):
+        player = None
+        if "id" not in data or (not isServer and data["id"] == self.player.id):
+            #Without ID it's client's player
+            player = self.player
+        elif "id" in data:
+            if data["id"] in self.players:
+                player = self.players[data["id"]]
+            else:
+                #Add player!
+                player = self.playerEnter(data["id"])
+        else:
+            print "Incorrect data", data
+            return
+        if "action" in data:
+            player.setControl(data["action"][0], data["action"][1])
+        if "actions" in data:
+            player.actions = data["actions"]
+        if "loc" in data:
+            player.setPos(data["loc"])
 
     def getPlayers(self):
         return self.players
+
+    def stop(self):
+        print 'going to bed...'
+        self.taskMgr.stop()
+        reactor.stop()
+        self.closeWindow(self.win)
+        base.userExit()
+        sys.exit()
+
 
 class Server(Protocol):
     """docstring for Server"""
     def __init__(self, factory, world):
         self.factory = factory
         self.world = world
+        # self.id is connection and player id
         self.id = -1
 
     def connectionMade(self):
         print 'New player'
-        dataToSend = {"add_player":self.factory.numProtocols}
+        dataToSend = {"add_player": self.factory.numProtocols}
+        for p in self.factory.clients:
+            p.transport.write(json.dumps(dataToSend))
+
         players = []
         for pl in self.world.players:
             client_player = self.world.players[pl]
@@ -128,43 +192,42 @@ class Server(Protocol):
                 "id": client_player.id,
                 "loc": client_player.getPos(),
                 "actions": client_player.actions
-                })
-        dataToSend["players"] = players
-        for p in self.factory.clients:
-            p.transport.write(json.dumps(dataToSend))
-
+            })
+        dataToSend = {"id": self.factory.numProtocols,
+                      "players": players}
         self.factory.clients.append(self)
         self.world.playerEnter(self.factory.numProtocols)
         self.id = self.factory.numProtocols
-        self.transport.write(json.dumps({"id":self.factory.numProtocols}))
-        self.factory.numProtocols = self.factory.numProtocols+1 
-
+        self.transport.write(json.dumps(dataToSend))
+        self.factory.numProtocols = self.factory.numProtocols + 1
 
     def connectionLost(self, reason):
-        self.factory.numProtocols = self.factory.numProtocols-1
+        #self.factory.numProtocols = self.factory.numProtocols - 1
+        pass
 
     def dataReceived(self, data):
         print 'Data received', data
-        dataToSend = {}
-        try:
-            jdata = json.loads(data)
-        except:
-            return
-        dataToSend["id"] = self.id
-        dataToSend.update(jdata)
-        self.world.stateChange({"player": dataToSend})
-        for p in self.factory.clients:
-            if p != self:
-                p.transport.write(json.dumps({"player": dataToSend}))
+        bigdata = safeLoads(data)
+        for jdata in bigdata:
+            dataToSend = {}
+            dataToSend = jdata
+            #dataToSend.update(jdata)
+            if "id" not in dataToSend:
+                dataToSend["id"] = self.id
+            self.world.updatePlayer(dataToSend)
+            for p in self.factory.clients:
+                if p != self:
+                    p.transport.write(json.dumps({"player": dataToSend}))
+
 
 class ServerFactory(Factory):
     def __init__(self, world):
-        self.world = world # maps user names to Chat instances
+        self.world = world
         self.numProtocols = 0
         self.clients = []
 
     def buildProtocol(self, addr):
-        return Server(self, self.world) 
+        return Server(self, self.world)
 
 
 class GameClient(Protocol):
@@ -182,9 +245,11 @@ class GameClient(Protocol):
 
     def dataReceived(self, data):
         print "Data received", data
-        jdata = json.loads(data)
-        if "id" in jdata:
-            self.world.player.id = jdata["id"]
+        bigdata = safeLoads(data)
+        for jdata in bigdata:
+            if "id" in jdata:
+                self.world.player.id = jdata["id"]
+            self.world.updateData(jdata)
 
     def sendData(self, data):
         '''data in json.dumps!'''
@@ -196,7 +261,7 @@ class GameClient(Protocol):
 
 class GameClientFactory(ClientFactory):
     def __init__(self, world):
-        self.world = world 
+        self.world = world
 
     def startedConnecting(self, connector):
         print 'Started to connect.'
@@ -207,7 +272,7 @@ class GameClientFactory(ClientFactory):
 
     def clientConnectionLost(self, connector, reason):
         print 'Lost connection.  Reason:', reason
-        connector.connect()
+        #connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
         print 'Connection failed. Reason:', reason

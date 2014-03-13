@@ -25,8 +25,8 @@ class Controls:
 
         #self.world.taskMgr.add(self.update, "controlTask")
         self.player = self.world.player
-        
-        self.world.accept("escape", sys.exit)
+        self.mx, self.my = 0, 0
+        self.world.accept("escape", self.world.stop)
         self.world.accept("w", self.player.setControl, [FORWARD, True])
         self.world.accept("a", self.player.setControl, [ROT_LEFT, True])
         self.world.accept("s", self.player.setControl, [BACK, True])
@@ -38,29 +38,51 @@ class Controls:
 #        self.accept("mouse1", self.setControl, ["zoom-in", True])
 #        self.accept("mouse1-up", self.setControl, ["zoom-in", False])
 #        self.accept("mouse3", self.setControl, ["zoom-out", True])
-#        self.accept("mouse3-up", self.setControl, ["zoom-out", False])
-        self.world.accept("wheel_up", self.player.setControl, ["wheel-in", True])
-        self.world.accept("wheel_down", self.player.setControl, ["wheel-out", True])
-        self.world.accept("page_up", self.player.setControl, ["zoom-in", True])
-        self.world.accept("page_up-up", self.player.setControl, ["zoom-in", False])
-        self.world.accept("page_down", self.player.setControl, ["zoom-out", True])
-        self.world.accept("page_down-up", self.player.setControl, ["zoom-out", False])
+##        self.accept("mouse3-up", self.setControl, ["zoom-out", False])
+#        self.world.accept("wheel_up", self.player.setControl, ["wheel-in", True])
+#        self.world.accept("wheel_down", self.player.setControl, ["wheel-out", True])
+#        self.world.accept("page_up", self.player.setControl, ["zoom-in", True])
+#        self.world.accept("page_up-up", self.player.setControl, ["zoom-in", False])
+#        self.world.accept("page_down", self.player.setControl, ["zoom-out", True])
+#        self.world.accept("page_down-up", self.player.setControl, ["zoom-out", False])
 
         self.camera = self.world.camera
-        self.camera.reparentTo(self.world.player.model)
 
         self.cameraTargetHeight = 6.0
 
         self.cameraDistance = 30
 
         self.cameraPitch = 10
-
-        self.camera.setY(self.camera, -20)
+        self.j1 = self.player.model.attachNewNode('cam_j1')
+        self.j2 = self.j1.attachNewNode('cam_j2')
+        self.j2.setZ(5)
+        self.j3 = self.j2.attachNewNode('cam_j3')
+        self.j3.setY(-40)
+        self.camera.reparentTo(self.j3)
 
         self.world.disableMouse()
-
-        props = WindowProperties()
-        props.setCursorHidden(True)
-        self.world.win.requestProperties(props)
+        self.world.taskMgr.add(self.cameraTask, 'cameraTask')
+        #props = WindowProperties()
+        #props.setCursorHidden(True)
+        #self.world.win.requestProperties(props)
         print "Controls init success"
 
+    def cameraTask(self, task):
+        if base.mouseWatcherNode.hasMouse():
+            mpos = base.mouseWatcherNode.getMouse()
+            dx, dy = (self.mx-mpos.getX())*100, (self.my-mpos.getY())*100
+            self.j1.setH(self.j1.getH()+dx)
+            self.j2.setP(self.j2.getP()-dy)
+            if self.j2.getP() < -80:
+                self.j2.setP(-80)
+            if self.j2.getP() > -10:
+                self.j2.setP(-10)
+
+            self.mx = mpos.getX()
+            self.my = mpos.getY()
+
+#        vDir = Vec3(self.j3.getPos(render))-Vec3(base.camera.getPos(render))
+#        vDir = vDir*0.2
+#        base.camera.setPos(Vec3(base.camera.getPos())+vDir)
+#        base.camera.lookAt(self.j2.getPos(render))
+        return task.cont

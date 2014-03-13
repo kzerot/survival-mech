@@ -1,0 +1,16 @@
+{
+    "player" : {
+            "actions":[1,2],
+            "loc": [0,0,1],
+            "id": 1
+        },
+    "players" : [
+        {
+            "actions":[1,2],
+            "loc": [0,0,1],
+            "id": 1
+        },
+    ],
+    "add_player": 3, //ID
+
+}
